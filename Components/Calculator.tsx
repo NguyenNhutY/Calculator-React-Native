@@ -1,154 +1,81 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import React, { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import React, { useReducer } from "react";
 import { Colors } from "@/utils/Colors";
 import Button from "./Button";
 
+const initialState = {
+  displayValue: "0",
+  firstValue: "",
+  operator: "",
+  waitingForSecondOperand: false,
+};
+
+const calculatorReducer = (state, action) => {
+  switch (action.type) {
+    case "INPUT_NUMBER":
+      if (state.displayValue === "0" || state.waitingForSecondOperand) {
+        return { ...state, displayValue: action.payload, waitingForSecondOperand: false };
+      }
+      return { ...state, displayValue: state.displayValue + action.payload };
+
+    case "INPUT_OPERATOR":
+      if (state.operator && !state.waitingForSecondOperand) {
+        return {
+          ...state,
+          displayValue: String(eval(`${state.firstValue} ${state.operator} ${state.displayValue}`)),
+          firstValue: state.displayValue,
+          operator: action.payload,
+          waitingForSecondOperand: true,
+        };
+      }
+      return { ...state, firstValue: state.displayValue, operator: action.payload, waitingForSecondOperand: true };
+
+    case "CALCULATE":
+      if (!state.operator || state.waitingForSecondOperand) return state;
+      return {
+        ...state,
+        displayValue: String(eval(`${state.firstValue} ${state.operator} ${state.displayValue}`)),
+        firstValue: "",
+        operator: "",
+        waitingForSecondOperand: false,
+      };
+
+    case "CLEAR":
+      return initialState;
+
+    case "DELETE":
+      return { ...state, displayValue: state.displayValue.length > 1 ? state.displayValue.slice(0, -1) : "0" };
+
+    default:
+      return state;
+  }
+};
+
 const Calculator = () => {
-  const [firstValue, setFirstValue] = useState("");
-  const [displayValue, setDisplayValue] = useState("0");
-  const [operator, setOperator] = useState("");
-
-  const handleNumberInput = (num: string) => {
-    if (displayValue == "0") {
-      setDisplayValue(num);
-    } else {
-      setDisplayValue(displayValue + num);
-    }
-  };
-
-  const handleOperatorInput = (operator: string) => {
-    setOperator(operator);
-    setFirstValue(displayValue);
-    setDisplayValue("0");
-  };
-
-  const handleCalculation = () => {
-    const num1 = parseFloat(firstValue);
-    const num2 = parseFloat(displayValue);
-
-    if (operator === "+") {
-      setDisplayValue((num1 + num2).toString());
-    } else if (operator === "-") {
-      setDisplayValue((num1 - num2).toString());
-    } else if (operator === "*") {
-      setDisplayValue((num1 * num2).toString());
-    } else if (operator === "/") {
-      setDisplayValue((num1 / num2).toString());
-    } else if (operator === "%") {
-      setDisplayValue((num1 % num2).toString());
-    }
-
-    setOperator("");
-    setFirstValue("");
-  };
-
-  const handleClear = () => {
-    setDisplayValue("0");
-    setOperator("");
-    setFirstValue("");
-  };
-
-  const handleDelete = () => {
-    if (displayValue.length == 1) {
-      setDisplayValue("0");
-    } else {
-      setDisplayValue(displayValue.slice(0, -1));
-    }
-  };
+  const [state, dispatch] = useReducer(calculatorReducer, initialState);
 
   return (
     <View style={styles.container}>
       <View style={styles.display}>
-        <Text style={{ fontSize: 30, fontWeight: "300" }}>
-          {firstValue + operator}
-        </Text>
-        <Text style={{ fontSize: 70, fontWeight: "300" }}>{displayValue}</Text>
+        <Text style={styles.equation}>{state.firstValue} {state.operator}</Text>
+        <Text style={styles.result}>{state.displayValue}</Text>
       </View>
       <View style={styles.keypad}>
-        <Button title="C" type="top" onPress={handleClear} />
-        <Button title="⌫" type="top" onPress={handleDelete} />
-        <Button title="%" type="top" onPress={() => handleOperatorInput("%")} />
-        <Button
-          title="÷"
-          type="right"
-          onPress={() => handleOperatorInput("/")}
-        />
-        <Button
-          title="7"
-          type="number"
-          onPress={() => handleNumberInput("7")}
-        />
-        <Button
-          title="8"
-          type="number"
-          onPress={() => handleNumberInput("8")}
-        />
-        <Button
-          title="9"
-          type="number"
-          onPress={() => handleNumberInput("9")}
-        />
-        <Button
-          title="x"
-          type="right"
-          onPress={() => handleOperatorInput("*")}
-        />
-        <Button
-          title="6"
-          type="number"
-          onPress={() => handleNumberInput("6")}
-        />
-        <Button
-          title="5"
-          type="number"
-          onPress={() => handleNumberInput("5")}
-        />
-        <Button
-          title="4"
-          type="number"
-          onPress={() => handleNumberInput("4")}
-        />
-        <Button
-          title="-"
-          type="right"
-          onPress={() => handleOperatorInput("-")}
-        />
-        <Button
-          title="1"
-          type="number"
-          onPress={() => handleNumberInput("1")}
-        />
-        <Button
-          title="2"
-          type="number"
-          onPress={() => handleNumberInput("2")}
-        />
-        <Button
-          title="3"
-          type="number"
-          onPress={() => handleNumberInput("3")}
-        />
-        <Button
-          title="+"
-          type="right"
-          onPress={() => handleOperatorInput("+")}
-        />
-        <Button
-          title="0"
-          type="number"
-          onPress={() => handleNumberInput("0")}
-        />
-        <Button
-          title="00"
-          type="number"
-          onPress={() => handleNumberInput("00")}
-        />
-        <Button
-          title="."
-          type="number"
-          onPress={() => handleNumberInput(".")}
-        />
-        <Button title="=" type="right" onPress={handleCalculation} />
+        {["C", "⌫", "%", "÷", "7", "8", "9", "x", "4", "5", "6", "-", "1", "2", "3", "+", "0", "00", ".", "="]
+          .map((btn) => (
+            <Button
+              key={btn}
+              title={btn}
+              type={"number"}
+              onPress={() => {
+                if (btn === "C") dispatch({ type: "CLEAR" });
+                else if (btn === "⌫") dispatch({ type: "DELETE" });
+                else if (btn === "=") dispatch({ type: "CALCULATE" });
+                else if (["+", "-", "x", "÷", "%"].includes(btn)) dispatch({ type: "INPUT_OPERATOR", payload: btn.replace("x", "*").replace("÷", "/") });
+                else dispatch({ type: "INPUT_NUMBER", payload: btn });
+              }}
+            />
+          ))}
       </View>
     </View>
   );
@@ -157,24 +84,22 @@ const Calculator = () => {
 export default Calculator;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   display: {
     flex: 1,
     backgroundColor: Colors.gray,
-    paddingVertical: 20,
-    paddingHorizontal: 40,
+    padding: 20,
     alignItems: "flex-end",
     justifyContent: "flex-end",
   },
+  equation: { fontSize: 30, fontWeight: "300" },
+  result: { fontSize: 70, fontWeight: "300" },
   keypad: {
     flex: 2,
     backgroundColor: Colors.light,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    gap: 30,
     padding: 30,
   },
 });
